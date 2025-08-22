@@ -473,6 +473,181 @@ const mockUser = {
   role: UserRole.USER,
 };
 ```
+## 🏗️ Decisões de Arquitetura
+
+### Framework e Tecnologias
+
+#### NestJS + TypeScript
+**Decisão:** Escolha do NestJS como framework principal
+**Justificativa:**
+- **Escalabilidade:** Arquitetura modular inspirada no Angular
+- **TypeScript nativo:** Type safety e melhor desenvolvimento
+- **Decorators:** Código mais limpo e declarativo (@Controller, @Injectable)
+- **Ecosystem maduro:** Integração nativa com TypeORM, JWT, validações
+- **Enterprise-ready:** Padrões bem definidos para projetos profissionais
+
+#### SQLite como Banco de Dados
+**Decisão:** SQLite ao invés de PostgreSQL/MySQL
+**Justificativa:**
+- **Simplicidade de setup:** Zero configuração para desenvolvimento e testes
+- **Portabilidade:** Arquivo único, fácil backup e deploy
+- **Performance adequada:** Suficiente para o volume esperado do sistema
+- **Desenvolvimento ágil:** Não requer instalação de servidor de banco
+- **Facilidade de migração:** Pode ser facilmente migrado para PostgreSQL em produção
+
+### Padrões de Arquitetura
+
+#### Arquitetura em Camadas
+```
+Controllers → Services → Repositories → Database
+```
+**Justificativa:**
+- **Separação de responsabilidades:** Cada camada tem função específica
+- **Testabilidade:** Fácil mock das dependências entre camadas
+- **Manutenibilidade:** Mudanças isoladas em cada camada
+- **Reutilização:** Services podem ser usados por múltiplos controllers
+
+#### Injeção de Dependência
+**Decisão:** Uso extensivo do DI container do NestJS
+**Justificativa:**
+- **Baixo acoplamento:** Componentes não dependem de implementações concretas
+- **Testabilidade:** Fácil substituição por mocks em testes
+- **Configurabilidade:** Troca de implementações via configuração
+- **Manutenibilidade:** Mudanças centralizadas no módulo
+
+### Segurança
+
+#### JWT + bcrypt
+**Decisão:** JWT para autenticação + bcrypt para hash de senhas
+**Justificativa:**
+- **Stateless:** JWT permite escalabilidade horizontal
+- **Segurança:** bcrypt com salt rounds 10 previne rainbow tables
+- **Performance:** Validação local do token sem consulta ao banco
+- **Flexibilidade:** Fácil integração com frontend SPA
+
+#### Guards e Decorators
+**Decisão:** Sistema de autorização baseado em Guards
+**Justificativa:**
+- **Declarativo:** @UseGuards() torna intenções explícitas
+- **Reutilizável:** Mesmo guard usado em múltiplos endpoints
+- **Interceptação precoce:** Bloqueia requisições antes do controller
+- **Composabilidade:** Combinação de múltiplos guards (@Roles + @JwtAuth)
+
+### Validação e DTOs
+
+#### class-validator + class-transformer
+**Decisão:** Validação declarativa com decorators
+**Justificativa:**
+- **Type safety:** Validação em tempo de compilação e execução
+- **Documentação viva:** Validações servem como documentação
+- **Reutilização:** DTOs reutilizáveis entre endpoints
+- **Feedback claro:** Mensagens de erro específicas para o frontend
+
+#### DTOs separados por operação
+```typescript
+CreateUserDto, UpdateUserDto, LoginDto
+```
+**Justificativa:**
+- **Princípio da responsabilidade única:** Cada DTO tem propósito específico
+- **Validações específicas:** Campos obrigatórios diferentes por operação
+- **Evolução independente:** Mudanças em create não afetam update
+- **Clareza de API:** Documentação mais precisa para cada endpoint
+
+### Estrutura de Módulos
+
+#### Módulos por Domínio
+```
+auth/, users/, clients/
+```
+**Justificativa:**
+- **Domain-Driven Design:** Organização por contexto de negócio
+- **Baixo acoplamento:** Módulos independentes com interfaces bem definidas
+- **Escalabilidade:** Fácil adição de novos domínios
+- **Time paralelo:** Diferentes desenvolvedores podem trabalhar em módulos distintos
+
+#### Barrel Exports
+**Decisão:** Exports centralizados via index.ts
+**Justificativa:**
+- **API limpa:** Controle sobre o que é exportado
+- **Refatoração segura:** Mudanças internas não afetam imports externos
+- **Performance:** Tree-shaking mais eficiente
+- **Organização:** Ponto único de entrada por módulo
+
+### Tratamento de Erros
+
+#### Exception Filters Globais
+**Decisão:** Tratamento centralizado de erros
+**Justificativa:**
+- **Consistência:** Formato padrão de resposta de erro
+- **Logging centralizado:** Todos os erros passam pelo mesmo ponto
+- **Segurança:** Evita vazamento de informações sensíveis
+- **Manutenibilidade:** Mudanças no formato de erro em um local
+
+#### HTTP Status Codes Semânticos
+**Decisão:** Uso correto dos códigos HTTP
+**Justificativa:**
+- **RESTful:** Seguir padrões da web
+- **Frontend amigável:** Fácil tratamento de erros no cliente
+- **Cache behavior:** Códigos corretos permitem cache apropriado
+- **Debugging:** Status codes facilitam troubleshooting
+
+### Testes
+
+#### Estrutura de Testes Organizada
+```
+src/module/tests/module.spec.ts
+```
+**Justificativa:**
+- **Organização:** Testes próximos ao código testado
+- **Convenção:** Padrão reconhecido pela comunidade
+- **Tooling:** Melhor suporte de IDEs e ferramentas
+- **Manutenibilidade:** Fácil localização e atualização de testes
+
+#### Jest + Mocking Extensivo
+**Decisão:** Jest como framework de testes com mocks
+**Justificativa:**
+- **Isolamento:** Testes unitários realmente unitários
+- **Performance:** Testes rápidos sem dependências externas
+- **Determinismo:** Resultados previsíveis e repetíveis
+- **Coverage:** Métricas precisas de cobertura de código
+
+### Performance e Otimização
+
+#### TypeORM com Query Builder
+**Decisão:** ORM com escape hatch para queries complexas
+**Justificativa:**
+- **Produtividade:** ORM acelera desenvolvimento básico
+- **Flexibilidade:** Query builder para casos complexos
+- **Type safety:** Queries tipadas em tempo de compilação
+- **Migrations:** Controle de versão do schema
+
+#### Eager/Lazy Loading Estratégico
+**Decisão:** Carregamento seletivo de relacionamentos
+**Justificativa:**
+- **Performance:** Evita queries N+1
+- **Flexibilidade:** Diferentes estratégias por endpoint
+- **Controle fino:** Otimização caso a caso
+- **Previsibilidade:** Comportamento explícito e controlado
+
+### Configuração e Deploy
+
+#### Environment Variables
+**Decisão:** Configuração via variáveis de ambiente
+**Justificativa:**
+- **12-Factor App:** Seguir melhores práticas de deploy
+- **Segurança:** Secrets fora do código fonte
+- **Flexibilidade:** Configuração diferente por ambiente
+- **CI/CD friendly:** Fácil automação de deploys
+
+#### Build Otimizado
+**Decisão:** Build TypeScript transpilado para produção
+**Justificativa:**
+- **Performance:** JavaScript nativo é mais rápido
+- **Deployment:** Bundle menor e mais eficiente
+- **Compatibilidade:** Suporte a diferentes versões do Node
+- **Debugging:** Source maps para troubleshooting em produção
+
+
 
 ## 📮 Collection Postman
 
@@ -516,76 +691,8 @@ pm.test("Login successful", function () {
 });
 ```
 
-## 🚀 Deploy
 
-### Preparação para Deploy
-```bash
-# Build da aplicação
-npm run build
 
-# Testar build localmente
-npm run start:prod
-```
-
-### Deploy no Railway
-1. **Conectar repositório:**
-   - Acesse: https://railway.app
-   - New Project → Deploy from GitHub
-
-2. **Configurar variáveis:**
-   ```env
-   JWT_SECRET=your-production-secret-key
-   NODE_ENV=production
-   PORT=3000
-   DATABASE_PATH=./database.sqlite
-   ```
-
-3. **Deploy automático:**
-   - Cada push na branch main = novo deploy
-
-### Deploy no Heroku
-```bash
-# Login e criar app
-heroku login
-heroku create conectar-backend
-
-# Configurar variáveis
-heroku config:set JWT_SECRET=your-production-secret
-heroku config:set NODE_ENV=production
-
-# Deploy
-git push heroku main
-
-# Ver logs
-heroku logs --tail
-```
-
-### Deploy com Docker
-```dockerfile
-# Dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy source
-COPY dist/ ./dist/
-
-# Expose port
-EXPOSE 3000
-
-# Start app
-CMD ["node", "dist/main"]
-```
-
-```bash
-# Build e run
-docker build -t conectar-backend .
-docker run -p 3000:3000 conectar-backend
-```
 
 ### Variáveis de Produção
 ```env
@@ -604,50 +711,16 @@ FRONTEND_URL=https://seu-frontend.vercel.app
 LOG_LEVEL=info
 ```
 
-## 🤝 Contribuição
 
-### Como Contribuir
-1. Fork o projeto
-2. Crie uma branch: `git checkout -b feature/nova-funcionalidade`
-3. Commit: `git commit -m 'Adiciona nova funcionalidade'`
-4. Push: `git push origin feature/nova-funcionalidade`
-5. Abra um Pull Request
 
-### Padrões de Código
-- **ESLint + Prettier** configurados
-- **Conventional Commits** recomendados
-- **Testes obrigatórios** para novas funcionalidades
-- **TypeScript strict mode** habilitado
-
-### Executar Testes Antes do Commit
-```bash
-# Verificar código
-npm run lint
-npm run format
-
-# Executar testes
-npm run test
-npm run test:e2e
-
-# Build para verificar compilation
-npm run build
-```
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja [LICENSE](LICENSE) para mais detalhes.
-
-## 👨‍💻 Desenvolvedor
+## Desenvolvedor
 
 **Gabriel** - Desenvolvedor Full Stack
 
-- GitHub: [@seu-usuario](https://github.com/seu-usuario)
-- LinkedIn: [Seu Nome](https://linkedin.com/in/seu-perfil)
-- Email: seu.email@gmail.com
 
 ---
 
-## 🎯 Status do Projeto
+## Status do Projeto
 
 ✅ **Funcionalidades Implementadas:**
 - Autenticação JWT completa
@@ -660,18 +733,11 @@ Este projeto está sob a licença MIT. Veja [LICENSE](LICENSE) para mais detalhe
 - Documentação Postman
 - Deploy em produção
 
-🚧 **Próximas Funcionalidades:**
-- Autenticação OAuth (Google/Microsoft)
-- Upload de arquivos
-- Logs de auditoria
-- Cache com Redis
-- Rate limiting
-
 ---
 
 ⭐ **Desenvolvido para o desafio técnico da Conéctar** ⭐
 
-*Demonstrando arquitetura limpa, boas práticas e código de qualidade.*If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash
 $ npm install -g @nestjs/mau
