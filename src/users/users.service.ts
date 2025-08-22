@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
+  clientsRepository: any;
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
@@ -132,14 +133,62 @@ export class UsersService {
     return this.findById(id);
   }
 
-  async remove(id: string): Promise<{ message: string }> {
-    const result = await this.usersRepository.delete(id);
-    if (result.affected && result.affected > 0) {
-      return { message: 'Usuário excluído com sucesso' };
-    }
-    return { message: 'Usuário não encontrado' };
+async remove(id: string): Promise<{ message: string }> {
+  const user = await this.findById(id);
+  if (!user) {
+    throw new Error('Usuário não encontrado');
   }
 
+  // Contar quantos clientes serão deletados
+  const clientCount = await this.clientsRepository.count({ where: { userId: id } });
+
+  // Deletar todos os clientes do usuário primeiro
+  if (clientCount > 0) {
+    await this.clientsRepository.delete({ userId: id });
+  }
+
+  // Depois deletar o usuário
+  const result = await this.usersRepository.delete(id);
+  
+  if (result.affected && result.affected > 0) {
+    const message = clientCount > 0 
+      ? `Usuário e ${clientCount} cliente(s) excluído(s) com sucesso`
+      : 'Usuário excluído com sucesso';
+    return { message };
+  }
+  
+  return { message: 'Erro ao excluir usuário' };
+}async updatePassword(id: string, passwordData: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const user = await this.findById(id);
+  if (!user) {
+    throw new Error('Usuário não encontrado');
+  }
+
+  // Verificar se o usuário usa login local (não é do Google)
+  if (user.provider === 'google' || !user.password) {
+    throw new Error('Usuários que fazem login com Google não podem alterar senha');
+  }
+
+  // Verificar senha atual
+  const isCurrentPasswordValid = await bcrypt.compare(passwordData.currentPassword, user.password);
+  if (!isCurrentPasswordValid) {
+    throw new Error('Senha atual incorreta');
+  }
+
+  // Validar nova senha
+  if (passwordData.newPassword.length < 6) {
+    throw new Error('A nova senha deve ter pelo menos 6 caracteres');
+  }
+
+  // Hash da nova senha
+  const hashedNewPassword = await bcrypt.hash(passwordData.newPassword, 10);
+
+  // Atualizar senha
+  await this.usersRepository.update(id, { password: hashedNewPassword });
+}
   async updateLastLogin(userId: string): Promise<void> {
     await this.usersRepository.update(userId, { lastLogin: new Date() });
   }

@@ -72,7 +72,27 @@ export class UsersController {
 
     return this.usersService.update(id, updateData);
   }
+    @Put(':id/password')
+    async updatePassword(
+      @Param('id') id: string,
+      @Body() passwordData: { 
+        currentPassword: string; 
+        newPassword: string 
+      },
+      @Req() req: Request & { user: any },
+    ) {
+      try {
+        // Usuários só podem alterar sua própria senha
+        if (req.user.sub !== id) {
+          return { message: 'Você só pode alterar sua própria senha' };
+        }
 
+        await this.usersService.updatePassword(id, passwordData);
+        return { message: 'Senha atualizada com sucesso' };
+      } catch (error: any) {
+        return { message: error.message };
+      }
+    }
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')

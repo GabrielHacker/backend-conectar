@@ -1,9 +1,12 @@
+
+
+
 import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UserRole, User } from '../users/entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
-import type { Response, Request } from 'express';
+import express from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -41,49 +44,133 @@ export class AuthController {
   async googleAuth() {
     // Inicia o fluxo OAuth do Google
   }
+@Post('google/token')
+async googleTokenAuth(@Body() body: { credential: string }) {
+  try {
+    // Verificar o token do Google
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    
+    const ticket = await client.verifyIdToken({
+      idToken: body.credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error('Token inválido');
+    }
+
+    // Encontrar ou criar usuário
+    let user = await this.usersService.findByEmail(payload.email!);
+    
+    if (!user) {
+      user = await this.usersService.createFromGoogle({
+        email: payload.email!,
+        name: payload.name!,
+        googleId: payload.sub,
+        photo: payload.picture,
+      });
+    } else {
+      // Atualizar informações do Google
+      await this.usersService.updateGoogleInfo(user.id, {
+        googleId: payload.sub,
+        photo: payload.picture,
+      });
+    }
+
+    // Gerar token JWT
+    const result = await this.authService.login(user);
+    return result;
+    
+  } catch (error) {
+    console.error('Google token verification error:', error);
+    throw new Error('Falha na autenticação com Google');
+  }
+}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req: Request & { user: any }, @Res() res: Response) {
+  async googleAuthRedirect(@Req() req: express.Request & { user: any }, @Res() res: express.Response) {
     try {
       const token = await this.authService.googleLogin(req.user);
       
       // Redirecionar para o frontend com o token
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-      res.redirect(`${frontendUrl}/auth/callback?token=${token.access_token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
+      res.redirect(`${frontendUrl}?token=${token.access_token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
     } catch (error) {
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}?error=auth_failed`);
     }
   }
 
   @Post('seed')
   async seedUsers() {
-    const users = [
-      {
-        name: 'João Silva',
-        email: 'joao@conectar.com',
-        password: '123456',
-        role: UserRole.USER,
-      },
-      {
-        name: 'Maria Santos',
-        email: 'maria@conectar.com',
-        password: '123456',
-        role: UserRole.USER,
-      },
-      {
-        name: 'Pedro Admin',
-        email: 'pedro@conectar.com',
-        password: '123456',
-        role: UserRole.ADMIN,
-      },
-      {
-        name: 'Ana Costa',
-        email: 'ana@conectar.com',
-        password: '123456',
-        role: UserRole.USER,
-      },
-    ];
+  const users = [
+    // Usuários ativos (fizeram login recentemente)
+    {
+      name: 'João Silva',
+      email: 'joao@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: new Date(), // Login hoje
+    },
+    {
+      name: 'Maria Santos',
+      email: 'maria@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // Login há 5 dias
+    },
+    {
+      name: 'Pedro Admin',
+      email: 'pedro@conectar.com',
+      password: '123456',
+      role: UserRole.ADMIN,
+      lastLogin: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Login há 2 dias
+    },
+    
+    // Usuários INATIVOS (mais de 30 dias sem login)
+    {
+      name: 'Ana Costa',
+      email: 'ana@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000), // Login há 35 dias
+    },
+    {
+      name: 'Carlos Inativo',
+      email: 'carlos@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // Login há 45 dias
+    },
+    {
+      name: 'Julia Antiga',
+      email: 'julia@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // Login há 60 dias
+    },
+    
+    // Usuários que NUNCA fizeram login (criados há mais de 30 dias)
+    {
+      name: 'Roberto Nunca Logou',
+      email: 'roberto@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: null, // Nunca fez login
+      createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), // Criado há 40 dias
+    },
+    {
+      name: 'Lucia Sem Login',
+      email: 'lucia@conectar.com',
+      password: '123456',
+      role: UserRole.USER,
+      lastLogin: null, // Nunca fez login
+      createdAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000), // Criado há 50 dias
+    },
+  ];
 
     const createdUsers: User[] = [];
     for (const userData of users) {
