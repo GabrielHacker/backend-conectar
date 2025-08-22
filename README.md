@@ -652,14 +652,11 @@ src/module/tests/module.spec.ts
 ## 📮 Collection Postman
 
 ### Importar Collection
-1. **Opção 1 - URL da Collection:**
+1. **Opção 1 - URL da Documentação:**
    ```
-   https://api.postman.com/collections/12345-conectar-backend
-   ```
+[Acesse a documentação da API](https://documenter.getpostman.com/view/47723610/2sB3BKGU6H#38cef34e-9c63-4d3c-b977-271b576b5196)
+```
 
-2. **Opção 2 - Arquivo JSON:**
-   - Baixe: `conectar-backend.postman_collection.json`
-   - Importe no Postman: File → Import
 
 ### Variáveis de Ambiente
 Configure no Postman Environment:
@@ -668,10 +665,6 @@ Configure no Postman Environment:
 {
   "baseUrl": "http://localhost:3000",
   "token": "{{authToken}}",
-  "adminEmail": "admin@conectar.com",
-  "adminPassword": "123456",
-  "userId": "user-uuid-here",
-  "clientId": "client-uuid-here"
 }
 ```
 
